@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
@@ -74,7 +74,6 @@
     
     <div class="carousel" id="carousel"></div>
 
-    <!-- Modal de la Lista de Trabajo Local -->
     <div class="modal-overlay" id="modal-lista">
         <div class="modal-content">
             <div class="modal-header">
@@ -82,7 +81,6 @@
                 <button class="close-modal" onclick="cerrarModal()">X</button>
             </div>
             <div class="historial-lista" id="lista-trabajo-ui">
-                <!-- Los items del navegador se cargarán aquí -->
             </div>
             <button class="btn-subir-lote" id="btn-subir" onclick="subirListaADrive()">🚀 Subir a Drive</button>
         </div>
@@ -98,8 +96,10 @@
         const MODELOS = ['A1', 'A2', 'B1', 'B2', 'C1', 'C2', '3', '4']; 
         
         let sucursalActual = 'SCZ'; 
-        let baseDatosReal = {}; // La base del drive
-        let listaVirtual = [];  // Tu carrito de compras
+        let baseDatosReal = {}; 
+        
+        // RECUPERAR LA LISTA DEL NAVEGADOR AL ABRIR LA PÁGINA
+        let listaVirtual = JSON.parse(localStorage.getItem('lista_trabajo_lienzos')) || [];
         
         // 1. CARGA INICIAL Y SINCRONIZACIÓN SILENCIOSA
         async function cargarInventario() {
@@ -108,18 +108,16 @@
                 baseDatosReal = await response.json();
                 document.getElementById('loading').style.display = 'none';
                 if (document.getElementById('carousel').innerHTML === '') inicializarPantalla();
-                else renderizarProductos(); // Si ya estaba inicializada, solo actualiza números
+                else renderizarProductos(); 
             } catch (error) { console.error("Error al sincronizar"); }
         }
 
-        // Consultar el Drive cada 10 segundos en segundo plano
         setInterval(cargarInventario, 10000); 
 
-        // 2. MATEMÁTICA VISUAL (El secreto del sistema local)
+        // 2. MATEMÁTICA VISUAL 
         function obtenerStockVisual(idProducto, sucursal) {
-            let real = baseDatosReal[idProducto][sucursal] || 0;
+            let real = baseDatosReal[idProducto] ? (baseDatosReal[idProducto][sucursal] || 0) : 0;
             
-            // Le suma o resta a la pantalla lo que tienes en tu lista antes de subirlo
             listaVirtual.forEach(item => {
                 if (item.idProducto === idProducto) {
                     if (item.tipoAccion === 'producir' && sucursal === 'SCZ') {
@@ -196,7 +194,6 @@
 
             if (!cantidad || cantidad <= 0) return;
 
-            // Validación de stock en transferencias usando el stock VISUAL actual
             if (sucursalActual !== 'SCZ') {
                 let stockEnSCZ = obtenerStockVisual(idProducto, 'SCZ');
                 if (stockEnSCZ < cantidad) {
@@ -205,7 +202,6 @@
                 }
             }
 
-            // Crear el objeto del movimiento y meterlo a la lista local
             listaVirtual.push({
                 idUnico: Date.now().toString(),
                 idProducto: idProducto,
@@ -216,8 +212,11 @@
                 sucursalDestino: sucursalActual !== 'SCZ' ? sucursalActual : null
             });
 
+            // GUARDAR LA LISTA EN LA MEMORIA DEL NAVEGADOR
+            localStorage.setItem('lista_trabajo_lienzos', JSON.stringify(listaVirtual));
+
             input.value = '';
-            renderizarProductos(); // Actualiza la pantalla INSTANTÁNEAMENTE
+            renderizarProductos(); 
             
             const toast = document.getElementById('toast');
             toast.style.display = 'block';
@@ -226,8 +225,12 @@
 
         window.eliminarDeLista = function(idUnico) {
             listaVirtual = listaVirtual.filter(item => item.idUnico !== idUnico);
+            
+            // ACTUALIZAR LA LISTA EN LA MEMORIA DEL NAVEGADOR
+            localStorage.setItem('lista_trabajo_lienzos', JSON.stringify(listaVirtual));
+            
             renderizarProductos();
-            abrirModal(); // Redibuja el modal
+            abrirModal(); 
         };
 
         // 5. MODAL DE LISTA Y ENVÍO A DRIVE
@@ -279,8 +282,12 @@
                 const result = await response.json();
 
                 if (result.status === "success") {
-                    baseDatosReal = result.data; // Recibimos la DB real actualizada
-                    listaVirtual = []; // Limpiamos el carrito
+                    baseDatosReal = result.data; 
+                    
+                    // VACIAR LA LISTA Y BORRARLA DE LA MEMORIA DEL NAVEGADOR
+                    listaVirtual = []; 
+                    localStorage.removeItem('lista_trabajo_lienzos');
+                    
                     renderizarProductos();
                     cerrarModal();
                     alert("¡Todos los datos se han guardado exitosamente en Drive!");
