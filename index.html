@@ -89,7 +89,7 @@
 
     <script>
         // === PEGA AQUÍ TU URL DE GOOGLE APPS SCRIPT ===
-        const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwksIUwPwb54pbmv8GIC1BzZqzV7knTkd7KUyUrlK_zBrNHfBSNRWVzeEL45f--QmFz/exec"; 
+        const SCRIPT_URL = "https://script.google.com/macros/s/AKfycby6JQotYJdXQXEJsHEQ81K8uu2gQusGFTbVnYzdXJ9wpCbcvC228CeeUz3-HyP0CedR/exec"; 
         
         const TAMANOS = ['16x22', '20x27', '30x42', '50x40', '50x60', '60x80'];
         const MODELOS = ['A1', 'A2', 'B1', 'B2', 'C1', 'C2', '3', '4']; 
@@ -240,7 +240,10 @@
                                 </div>
                                 <div class="h-detail">
                                     <span>Hora: ${item.hora}</span>
-                                    <span class="h-qty">+${item.cantidad}</span>
+                                    <div style="display:flex; align-items:center; gap:15px;">
+                                        <span class="h-qty">+${item.cantidad}</span>
+                                        <button onclick="anularRegistro('${item.id}', '${item.tipo}', '${item.nombre}', ${item.cantidad})" style="background:none; border:none; padding:0; font-size:18px; cursor:pointer;">🗑️</button>
+                                    </div>
                                 </div>
                             </div>
                         `;
@@ -250,6 +253,45 @@
                 }
             } catch (error) {
                 contenedor.innerHTML = '<div style="text-align:center; padding:20px; color:#ef4444;">Error al cargar el historial.</div>';
+            }
+        };
+
+        window.anularRegistro = async function(idRegistro, tipo, nombre, cantidad) {
+            const confirmar = confirm(`¿Anular la ${tipo.toLowerCase()} de ${cantidad} marcos de ${nombre}? Se repondrá el inventario automáticamente.`);
+            if (!confirmar) return;
+
+            const contenedor = document.getElementById('lista-historial');
+            contenedor.innerHTML = '<div style="text-align:center; padding:20px; color:#64748b;">Anulando y reponiendo inventario... ⏳</div>';
+
+            try {
+                const response = await fetch(SCRIPT_URL, {
+                    method: 'POST',
+                    body: JSON.stringify({ 
+                        accion: 'anular_registro', 
+                        sucursal: sucursalActual,
+                        idRegistro: idRegistro 
+                    })
+                });
+                const result = await response.json();
+
+                if (result.status === "success") {
+                    baseDatos = result.data; // Actualiza la DB para el fondo
+                    renderizarProductos(); // Refresca los números que se ven detrás del modal
+                    
+                    // Mostrar mensaje de éxito
+                    const toast = document.getElementById('toast');
+                    toast.innerText = "🗑️ Registro anulado y stock repuesto";
+                    mostrarToast('toast');
+                    setTimeout(() => { toast.innerText = "✅ Operación exitosa"; }, 3000); // Resetear texto original
+                    
+                    abrirHistorial(); // Recarga la lista para que desaparezca el item borrado
+                } else {
+                    alert(result.message);
+                    abrirHistorial(); 
+                }
+            } catch (error) {
+                alert("Error de conexión al anular.");
+                abrirHistorial(); 
             }
         };
 
